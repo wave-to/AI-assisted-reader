@@ -1,0 +1,51 @@
+import 'dart:io';
+import 'package:ai_assisted_reader/utils/platform_utils.dart';
+
+import 'package:ai_assisted_reader/utils/get_path/get_download_path.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+
+Future<String?> saveFileToDownload(
+    {Uint8List? bytes,
+    String? sourceFilePath,
+    required String fileName,
+    String? mimeType}) async {
+  String downloadPath = await getDownloadPath();
+  String fileSavePath = '$downloadPath/$fileName';
+
+  switch (AarPlatform.type) {
+    case AarPlatformEnum.android:
+    case AarPlatformEnum.ios:
+    case AarPlatformEnum.ohos:
+      SaveFileDialogParams params = SaveFileDialogParams(
+        sourceFilePath: sourceFilePath,
+        data: bytes,
+        mimeTypesFilter: [mimeType ?? 'application/zip'],
+        fileName: fileName,
+      );
+      final filePath = await FlutterFileDialog.saveFile(params: params);
+      return filePath;
+    case AarPlatformEnum.macos:
+      String? outputFile = await FilePicker.platform.saveFile(
+        fileName: fileName,
+      );
+      bytes ??= await File(sourceFilePath!).readAsBytes();
+      if (outputFile != null) {
+        final file = File(outputFile);
+        await file.writeAsBytes(bytes);
+        return outputFile;
+      }
+      return outputFile;
+    case AarPlatformEnum.windows:
+      final file = File(fileSavePath);
+
+      if (!await file.exists()) {
+        await file.create(recursive: true);
+      }
+
+      bytes ??= await File(sourceFilePath!).readAsBytes();
+      await file.writeAsBytes(bytes);
+      return fileSavePath;
+  }
+}

@@ -1,0 +1,53 @@
+# Dev tools — large binaries, not part of the app source
+tools/
+
+# Working memory and session notes
+Mem/
+
+# Claude Code skill data
+.claude/
+
+# Flutter build outputs
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+
+# Android
+app/android/.gradle/
+app/android/app/build/
+app/android/local.properties
+app/android/key.properties
+
+# iOS
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework
+app/ios/Flutter/App.framework
+
+# macOS
+app/macos/Pods/
+app/macos/Flutter/ephemeral/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Generated
+app/lib/l10n/generated/
+app/lib/gen/
+
+# Design docs (not code)
+UI美化方案.txt
+设计系统方案_v2.txt
+开发规划.txt
