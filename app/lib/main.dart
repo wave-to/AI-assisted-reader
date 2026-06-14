@@ -7,18 +7,14 @@ import 'package:ai_assisted_reader/dao/database.dart';
 import 'package:ai_assisted_reader/enums/sync_direction.dart';
 import 'package:ai_assisted_reader/enums/sync_trigger.dart';
 import 'package:ai_assisted_reader/l10n/generated/L10n.dart';
-import 'package:ai_assisted_reader/models/window_info.dart';
 import 'package:ai_assisted_reader/page/home_page.dart';
-import 'package:ai_assisted_reader/page/migration_page.dart';
 import 'package:ai_assisted_reader/service/book_player/book_player_server.dart';
 import 'package:ai_assisted_reader/service/network/http_proxy_overrides.dart';
 import 'package:ai_assisted_reader/service/tts/tts_handler.dart';
-import 'package:ai_assisted_reader/utils/get_path/macos_migration.dart';
 import 'package:ai_assisted_reader/utils/color_scheme.dart';
 import 'package:ai_assisted_reader/utils/error/common.dart';
 import 'package:ai_assisted_reader/utils/get_path/get_base_path.dart';
 import 'package:ai_assisted_reader/utils/log/common.dart';
-import 'package:ai_assisted_reader/utils/window_position_validator.dart';
 import 'package:ai_assisted_reader/providers/sync.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -26,47 +22,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:heroine/heroine.dart';
 import 'package:provider/provider.dart' as provider;
-import 'package:window_manager/window_manager.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 late AudioHandler audioHandler;
 final heroineController = HeroineController();
-
-/// Whether macOS data migration is needed (checked at startup)
-bool _needsMigration = false;
-MigrationCheckResult? _migrationCheckResult;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Prefs().initPrefs();
   HttpOverrides.global = AarHttpProxyOverrides();
 
-  // Initialize desktop window with validated position
-  if (AarPlatform.isWindows || AarPlatform.isMacOS) {
-    await initializeDesktopWindow();
-  }
-
-  // Check if migration is needed before initializing paths
-  if (AarPlatform.isMacOS) {
-    _migrationCheckResult = await checkMigrationNeeded();
-    _needsMigration = _migrationCheckResult?.needsMigration ?? false;
-  }
-
-  // If no migration needed, initialize paths normally
-  if (!_needsMigration) {
-    initBasePath();
-    AarLog.init();
-    AarError.init();
-    await DBHelper().initDB();
-  }
+  initBasePath();
+  AarLog.init();
+  AarError.init();
+  await DBHelper().initDB();
 
   Server().start();
 
   audioHandler = await AudioService.init(
     builder: () => TtsHandler(),
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.anx.reader.tts.channel.audio',
-      androidNotificationChannelName: 'ANX Reader TTS',
+      androidNotificationChannelId: 'com.aiassisted.reader.tts.channel.audio',
+      androidNotificationChannelName: 'AI Assisted Reader TTS',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
     ),
@@ -93,66 +70,19 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp>
-    with WidgetsBindingObserver, WindowListener {
+    with WidgetsBindingObserver {
   static const Locale _englishFallbackLocale = Locale('en');
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    windowManager.addListener(this);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  Future<void> onWindowClose() async {
-    await Server().stop();
-    await webViewEnvironment?.dispose();
-    webViewEnvironment = null;
-    await DBHelper.close();
-    await windowManager.destroy();
-  }
-
-  @override
-  Future<void> onWindowMoved() async {
-    await _updateWindowInfo();
-  }
-
-  @override
-  Future<void> onWindowMaximize() async {
-    await _updateWindowInfo();
-  }
-
-  @override
-  Future<void> onWindowUnmaximize() async {
-    await _updateWindowInfo();
-  }
-
-  @override
-  Future<void> onWindowResized() async {
-    await _updateWindowInfo();
-  }
-
-  Future<void> _updateWindowInfo() async {
-    if (!AarPlatform.isWindows && !AarPlatform.isMacOS) {
-      return;
-    }
-    final windowOffset = await windowManager.getPosition();
-    final windowSize = await windowManager.getSize();
-    final isMaximized = await windowManager.isMaximized();
-
-    Prefs().windowInfo = WindowInfo(
-        x: windowOffset.dx,
-        y: windowOffset.dy,
-        width: windowSize.width,
-        height: windowSize.height,
-        isMaximized: isMaximized);
-    AarLog.info('onWindowClose: Offset: $windowOffset, Size: $windowSize');
   }
 
   @override
@@ -204,10 +134,7 @@ class _MyAppState extends ConsumerState<MyApp>
             themeMode: prefsNotifier.themeMode,
             theme: colorSchema(prefsNotifier, context, Brightness.light),
             darkTheme: colorSchema(prefsNotifier, context, Brightness.dark),
-            home: _needsMigration
-                ? _MigrationWrapper(
-                    migrationCheckResult: _migrationCheckResult!)
-                : const HomePage(),
+            home: const HomePage(),
           );
         },
       ),
@@ -246,39 +173,3 @@ class _MyAppState extends ConsumerState<MyApp>
   }
 }
 
-/// Widget that wraps the migration flow on macOS.
-/// Shows MigrationPage during migration, then navigates to HomePage.
-class _MigrationWrapper extends StatefulWidget {
-  final MigrationCheckResult migrationCheckResult;
-
-  const _MigrationWrapper({required this.migrationCheckResult});
-
-  @override
-  State<_MigrationWrapper> createState() => _MigrationWrapperState();
-}
-
-class _MigrationWrapperState extends State<_MigrationWrapper> {
-  bool _migrationComplete = false;
-
-  Future<void> _onMigrationComplete() async {
-    // Initialize paths and DB after migration
-    initBasePath();
-    AarLog.init();
-    AarError.init();
-    await DBHelper().initDB();
-
-    if (mounted) {
-      setState(() {
-        _migrationComplete = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_migrationComplete) {
-      return const HomePage();
-    }
-    return MigrationPage(onMigrationComplete: _onMigrationComplete);
-  }
-}

@@ -33,7 +33,6 @@ import 'package:ai_assisted_reader/models/reading_info.dart';
 import 'package:ai_assisted_reader/models/reading_rules.dart';
 import 'package:ai_assisted_reader/models/user_prompt.dart';
 import 'package:ai_assisted_reader/widgets/statistic/dashboard_tiles/dashboard_tile_registry.dart';
-import 'package:ai_assisted_reader/models/window_info.dart';
 import 'package:ai_assisted_reader/service/ai/tools/ai_tool_registry.dart';
 import 'package:ai_assisted_reader/service/translate/index.dart';
 import 'package:ai_assisted_reader/utils/get_current_language_code.dart';
@@ -797,19 +796,6 @@ class Prefs extends ChangeNotifier {
     if (_storedChapterSplitRuleId == id) {
       _storedChapterSplitRuleId = kDefaultChapterSplitRuleId;
     }
-  }
-
-  set windowInfo(WindowInfo info) {
-    prefs.setString('windowInfo', jsonEncode(info.toJson()));
-    notifyListeners();
-  }
-
-  WindowInfo get windowInfo {
-    String? windowInfoJson = prefs.getString('windowInfo');
-    if (windowInfoJson == null) {
-      return const WindowInfo(x: 0, y: 0, width: 0, height: 0);
-    }
-    return WindowInfo.fromJson(jsonDecode(windowInfoJson));
   }
 
   /// Custom storage path for Windows/macOS

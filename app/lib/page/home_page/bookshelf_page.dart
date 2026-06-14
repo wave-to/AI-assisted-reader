@@ -27,7 +27,6 @@ import 'package:ai_assisted_reader/widgets/common/tag_chip.dart';
 import 'package:ai_assisted_reader/widgets/hint/hint_banner.dart';
 import 'package:ai_assisted_reader/widgets/common/aar_segmented_button.dart';
 import 'package:ai_assisted_reader/widgets/tips/bookshelf_tips.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_reorderable_grid_view/widgets/custom_draggable.dart';
@@ -484,59 +483,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
     Widget body = Column(
       children: [
         buildFilterBar(),
-        Expanded(
-          child: DropTarget(
-            onDragDone: (detail) async {
-              List<File> files = [];
-              for (var file in detail.files) {
-                files.add(await _copyToTempFile(
-                  sourcePath: file.path,
-                  fileName: file.name,
-                ));
-              }
-              importBookList(files, context, ref);
-              setState(() {
-                _dragging = false;
-              });
-            },
-            onDragEntered: (detail) {
-              setState(() {
-                _dragging = true;
-              });
-            },
-            onDragExited: (detail) {
-              setState(() {
-                _dragging = false;
-              });
-            },
-            child: Stack(
-              children: [
-                buildBookshelfBody,
-                if (_dragging)
-                  Container(
-                    color: Theme.of(context).colorScheme.surface.withAlpha(90),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            EvaIcons.arrowhead_down_outline,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          Text(
-                            L10n.of(context).bookshelfDragging,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: buildBookshelfBody),
       ],
     );
 
